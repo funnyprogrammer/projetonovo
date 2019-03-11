@@ -12,7 +12,7 @@ from ast import literal_eval
 from datetime import datetime
 from functools import partial
 
-def runRound(par, parameter, population_size, numberOfGenerations, crossoverType, crossoverTasksNumPerc, crossoverProbability, mutationType, mutationTasksNumPerc, tasksMutationStartProbability, tasksMutationEndProbability, operatorsMutationStartProbability, operatorsMutationEndProbability, changeMutationRateType, changeMutationRateExpBase, drivenMutation, drivenMutationPart, limitBestFitnessRepetionCount, numberOfcyclesAfterDrivenMutation, completenessWeight, TPweight, precisenessWeight, simplicityWeight, precisenessStart, simplicityStart, evolutionEnd, completenessAttemptFactor1, completenessAttemptFactor2, elitismPerc, selectionOp, selectionTp, lambdaValue, HammingThreshold, migrationtime, round, percentageOfBestIndividualsForMigrationPerIsland, percentageOfIndividualsForMigrationPerIsland, alphabet, log, fitnessStrategy, logIndex, barrier, barrier2, islandNumber):
+def runRound(par, parameter, population_size, numberOfGenerations, crossoverType, crossoverTasksNumPerc, crossoverProbability, mutationType, mutationTasksNumPerc, tasksMutationStartProbability, tasksMutationEndProbability, operatorsMutationStartProbability, operatorsMutationEndProbability, changeMutationRateType, changeMutationRateExpBase, drivenMutation, drivenMutationPart, limitBestFitnessRepetionCount, numberOfcyclesAfterDrivenMutation, completenessWeight, TPweight, precisenessWeight, simplicityWeight, precisenessStart, simplicityStart, evolutionEnd, completenessAttemptFactor1, completenessAttemptFactor2, elitismPerc, selectionOp, selectionTp, lambdaValue, HammingThreshold, migrationtime, percentageOfBestIndividualsForMigrationPerIsland, percentageOfIndividualsForMigrationPerIsland, alphabet, log, fitnessStrategy, logIndex, num_threads, round, broadcast, islandNumber):
     islandStart = datetime.now()
     highestValueAndPosition = [[0, 0, 0], -1]
     if highestValueAndPosition[0][1] >= precisenessStart:
@@ -34,6 +34,17 @@ def runRound(par, parameter, population_size, numberOfGenerations, crossoverType
         (tasksMutationProbability, operatorsMutationProbability) = op.defineMutationProbability(tasksMutationStartProbability, tasksMutationEndProbability, operatorsMutationStartProbability, operatorsMutationEndProbability, numberOfGenerations, currentGeneration, changeMutationRateType, changeMutationRateExpBase)
         (population, evaluatedPopulation, drivenMutatedIndividuals, drivenMutatedGenerations) = cycle.generation(population, referenceCromossome, evaluatedPopulation, crossoverType, crossoverProbability, crossoverTasksNumPerc, mutationType, mutationTasksNumPerc, tasksMutationProbability, operatorsMutationProbability, drivenMutation, drivenMutationPart, limitBestFitnessRepetionCount, fitnessEvolution[currentGeneration - 1][3], drivenMutatedIndividuals, drivenMutatedGenerations, TPweight, precisenessWeight, simplicityWeight, completenessWeight, elitismPerc, sortedEvaluatedPopulation, selectionOp, selectionTp, lambdaValue, HammingThreshold, currentGeneration, completenessAttemptFactor1, completenessAttemptFactor2, numberOfcyclesAfterDrivenMutation, alphabet, log)
         (highestValueAndPosition, sortedEvaluatedPopulation) = cycle.chooseHighest(evaluatedPopulation)
+        isl.set_broadcast(population, sortedEvaluatedPopulation, islandNumber,percentageOfBestIndividualsForMigrationPerIsland, broadcast)
+
+        teste = []
+        for i in range(num_threads):
+            ilha = broadcast[i]
+            linha = []
+            for j in range(len(ilha)):
+                linha.append(ilha[j][1])
+            teste.append(linha)
+        print('Island ', islandNumber, 'printed:', teste)
+
         lowestValue = cycle.chooseLowest(sortedEvaluatedPopulation)
         averageValue = cycle.calculateAverage(evaluatedPopulation)
         fitnessEvolution.append([lowestValue, highestValueAndPosition[0][0], averageValue, 0, highestValueAndPosition[0][1], highestValueAndPosition[0][2], highestValueAndPosition[0][3], highestValueAndPosition[0][4], 0, 0, 0, 0])
@@ -51,24 +62,19 @@ def runRound(par, parameter, population_size, numberOfGenerations, crossoverType
             simplicityWeight = float(par[parameter][21])
         print('LOG:', logIndex, '| PAR:', parameter, '| RND:', round, '| GEN:', currentGeneration, '| TF:', '%.6f' % highestValueAndPosition[0][0], '| C:', '%.5f' % highestValueAndPosition[0][1], '| TP:', '%.5f' % highestValueAndPosition[0][2], '| P:', '%.5f' % highestValueAndPosition[0][3], '| S:', '%.5f' % highestValueAndPosition[0][4], '| REP:', fitnessEvolution[currentGeneration][8], fitnessEvolution[currentGeneration][3], fitnessEvolution[currentGeneration][9], fitnessEvolution[currentGeneration][10], fitnessEvolution[currentGeneration][11], '| ISL:', islandNumber)
         if ((fitnessStrategy == 0) and ((highestValueAndPosition[0][1] >= 1.0) and (fitnessEvolution[currentGeneration][8] >= evolutionEnd))) or ((fitnessStrategy == 1) and ((highestValueAndPosition[0][1] == 1.0) and (highestValueAndPosition[0][3] > 0) and (highestValueAndPosition[0][4] > 0) and (fitnessEvolution[currentGeneration][10] >= evolutionEnd) and (fitnessEvolution[currentGeneration][11] >= evolutionEnd))):
-            migra = open('island_files/migrationN.txt', 'w')
-            migra.write(str(0) + '\n')
-            migra.close()
+            broadcast[len(broadcast)-1] = 0
         if (currentGeneration > 0) and (currentGeneration % migrationtime == 0):
-            isl.set_broadcast2(population, sortedEvaluatedPopulation, islandNumber, percentageOfBestIndividualsForMigrationPerIsland)
             island_fitness = []
             for i in range(len(evaluatedPopulation[1])):
                 valor = evaluatedPopulation[1][i]
                 island_fitness.append(valor[0])
-            barrier.wait()
-            isl.do_migration2(population, islandNumber, island_fitness, percentageOfIndividualsForMigrationPerIsland)
+            isl.do_migration2(population, islandNumber, num_threads, island_fitness, percentageOfIndividualsForMigrationPerIsland, broadcast)
             migraNeed = []
             with open('island_files/migrationN.txt', 'r') as f:
                 for line in f:
                     migraNeed.append(literal_eval(line))
             if migraNeed[0] == 0:
                 break
-            barrier2.wait()
             evaluatedPopulation = fit.evaluationPopulation(population, referenceCromossome, TPweight, precisenessWeight, simplicityWeight, completenessWeight, completenessAttemptFactor1, completenessAttemptFactor2, selectionOp, alphabet, log)
             (highestValueAndPosition, sortedEvaluatedPopulation) = cycle.chooseHighest(evaluatedPopulation)
     cycle.postProcessing(population, alphabet)
@@ -145,24 +151,35 @@ if __name__ == '__main__':
         logSizeAndMaxTraceSize = [0, float('inf'), 0]
         iniPop.createAlphabet(log, alphabet)
         iniPop.processLog(log, logSizeAndMaxTraceSize)
-        print('Para', num_threads , 'threads:', 'logs = ' , logIndex)
+        print('Para', num_threads, 'threads:', 'logs = ', logIndex)
+        num_islands = []
+        for thread in range(num_threads):
+            num_islands.append(thread)
+
+        isl.create_island()
+        p = multiprocessing.Pool(num_threads)
+        m = multiprocessing.Manager()
+        broadcast = m.list()
+        func = partial(runRound, par, parameter, population_size, numberOfGenerations, crossoverType,
+                       crossoverTasksNumPerc, crossoverProbability, mutationType, mutationTasksNumPerc,
+                       tasksMutationStartProbability,
+                       tasksMutationEndProbability, operatorsMutationStartProbability, operatorsMutationEndProbability,
+                       changeMutationRateType,
+                       changeMutationRateExpBase, drivenMutation, drivenMutationPart, limitBestFitnessRepetionCount,
+                       numberOfcyclesAfterDrivenMutation,
+                       completenessWeight, TPweight, precisenessWeight, simplicityWeight, precisenessStart,
+                       simplicityStart, evolutionEnd, completenessAttemptFactor1,
+                       completenessAttemptFactor2, elitismPerc, selectionOp, selectionTp, lambdaValue, HammingThreshold,
+                       migrationtime, percentageOfBestIndividualsForMigrationPerIsland,
+                       percentageOfIndividualsForMigrationPerIsland, alphabet, log, fitnessStrategy, logIndex, num_threads)
         for round in range(numberOfRounds):
-            num_islands = []
+            #zerar o broadcast a cada round
             for thread in range(num_threads):
-                num_islands.append(thread)
-            isl.create_island(num_islands, num_threads)
-            p = multiprocessing.Pool(num_threads)
-            m = multiprocessing.Manager()
-            barrier = m.Barrier(num_threads, isl.mig_time, timeout=10000)
-            barrier2 = m.Barrier(num_threads, isl.reset_broadcast, timeout= 10000)
-            func = partial(runRound, par, parameter, population_size, numberOfGenerations, crossoverType,
-            crossoverTasksNumPerc, crossoverProbability, mutationType, mutationTasksNumPerc, tasksMutationStartProbability,
-            tasksMutationEndProbability, operatorsMutationStartProbability, operatorsMutationEndProbability, changeMutationRateType,
-            changeMutationRateExpBase, drivenMutation, drivenMutationPart, limitBestFitnessRepetionCount, numberOfcyclesAfterDrivenMutation,
-            completenessWeight, TPweight, precisenessWeight, simplicityWeight, precisenessStart, simplicityStart, evolutionEnd, completenessAttemptFactor1,
-            completenessAttemptFactor2, elitismPerc, selectionOp, selectionTp, lambdaValue, HammingThreshold, migrationtime, round, percentageOfBestIndividualsForMigrationPerIsland,
-            percentageOfIndividualsForMigrationPerIsland, alphabet, log, fitnessStrategy, logIndex, barrier, barrier2)
-            p.map(func, num_islands)
+                new_thread = []
+                broadcast.append(new_thread)
+            broadcast.append(1)
+            func2 = partial(func, round, broadcast)
+            p.map(func2, num_islands)
             p.close()
             plot.plot_evolution_integrated(str(parameter), str(round), num_threads)
             globalEnd = datetime.now()

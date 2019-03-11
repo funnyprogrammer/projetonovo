@@ -121,6 +121,9 @@ def generation(population, referenceCromossome, evaluatedPopulation, crossoverTy
 def takeFirst(elem):
     return elem[0]
 
+def takeSecond(elem):
+    return elem[1]
+
 def chooseHighest(evaluatedPopulation):
     highestValue = [-1, -1, -1, -1, -1]
     sortedEvaluatedPopulation = sorted(evaluatedPopulation[1], reverse=True, key=takeFirst)
